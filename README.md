@@ -20,6 +20,22 @@
 
 ---
 
+## Demonstração
+
+### Sessão conectada
+
+Após escanear o QR na primeira vez, a sessão fica pronta para uso nas tools MCP:
+
+![WhatsApp conectado via whats-mcp](images/conectado.png)
+
+### Enviando mensagem pela AI CLI
+
+Exemplo de comando natural na CLI pedindo envio de mensagem — o agente usa as tools `whatsapp_*` por baixo:
+
+![Comando para enviar mensagem via MCP](images/comando%20enviando%20mensagem.png)
+
+---
+
 ## Arquitetura
 
 ```
@@ -514,6 +530,7 @@ whats-mcp/
 ├── package.json
 ├── .env.example
 ├── .env                ← criado por você (não commitado)
+├── images/             ← screenshots para o README
 ├── sessions/           ← criado automaticamente
 │   └── session-{id}/   ← dados LocalAuth do WhatsApp
 └── src/
