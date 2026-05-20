@@ -18,7 +18,7 @@ import { dirname, join } from 'path'
 import 'dotenv/config'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const PORT = parseInt(process.env.PORT || '3001')
+const PORT = parseInt(process.env.WHATS_MCP_PORT || process.env.PORT || '47891')
 const BASE = `http://localhost:${PORT}`
 
 // ─── Check / start daemon ──────────────────────────────────────────────────
