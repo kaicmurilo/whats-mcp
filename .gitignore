@@ -1,0 +1,19 @@
+node_modules
+.env
+.env.*
+!.env.example
+sessions
+.DS_Store
+reviews/
+.claude/
+.wwebjs_cache/
+.puppeteer/
+
+# Memória local do agente (não versionar)
+CLAUDE.md
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

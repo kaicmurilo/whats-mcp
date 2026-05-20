@@ -1,0 +1,277 @@
+const { globalApiKey, rateLimitMax, rateLimitWindowMs, enableAuth } = require('./config')
+const { sendErrorResponse } = require('./utils')
+const { validateSession } = require('./sessions')
+const rateLimiting = require('express-rate-limit')
+
+// Importar middleware de autenticação
+const { 
+  authenticateToken, 
+  requireActiveUser, 
+  requireScope,
+  requireAnyScope,
+  requireAllScopes,
+  requireSessionOwnership,
+  requireSessionOwnershipOrCreate,
+  checkAuthEnabled 
+} = require('./middleware/authMiddleware')
+
+// Middleware para rotas que aceitam apenas API Key (administrativas)
+const apikey = async (req, res, next) => {
+  /*
+    #swagger.security = [{
+          "apiKeyAuth": []
+    }]
+  */
+  /* #swagger.responses[403] = {
+        description: "Forbidden.",
+        content: {
+          "application/json": {
+            schema: { "$ref": "#/definitions/ForbiddenResponse" }
+          }
+        }
+      }
+  */
+  
+  if (globalApiKey) {
+    const apiKey = req.headers['x-api-key']
+    if (!apiKey || apiKey !== globalApiKey) {
+      return sendErrorResponse(res, 403, 'Invalid API key')
+    }
+  }
+  next()
+}
+
+// Middleware para rotas que aceitam apenas JWT (rotas de usuário)
+const userAuth = async (req, res, next) => {
+  /*
+    #swagger.security = [{
+          "bearerAuth": []
+    }]
+  */
+  /* #swagger.responses[401] = {
+        description: "Unauthorized.",
+        content: {
+          "application/json": {
+            schema: { "$ref": "#/definitions/UnauthorizedResponse" }
+          }
+        }
+      }
+  */
+  /* #swagger.responses[403] = {
+        description: "Forbidden.",
+        content: {
+          "application/json": {
+            schema: { "$ref": "#/definitions/ForbiddenResponse" }
+          }
+        }
+      }
+  */
+  
+  // Se a autenticação JWT estiver habilitada, verificar token JWT
+  if (enableAuth) {
+    // Verificar se há um token JWT válido
+    const authHeader = req.headers['authorization']
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      try {
+        const AuthService = require('./auth/authService')
+        const result = await AuthService.validateToken(token)
+        if (result && result.user) {
+          // Token JWT válido encontrado, permitir continuar
+          req.user = result.user
+          req.token = result.token
+          return next()
+        }
+      } catch (error) {
+        // Token JWT inválido
+        return sendErrorResponse(res, 401, 'Token inválido ou expirado')
+      }
+    }
+    
+    // Se não há token JWT válido e a autenticação está habilitada
+    return sendErrorResponse(res, 401, 'Token de acesso não fornecido')
+  }
+  
+  // Se a autenticação estiver desabilitada, permitir acesso
+  next()
+}
+
+const sessionNameValidation = async (req, res, next) => {
+  /*
+    #swagger.parameters['sessionId'] = {
+      in: 'path',
+      description: 'Unique identifier for the session (alphanumeric and - allowed)',
+      required: true,
+      type: 'string',
+      example: 'f8377d8d-a589-4242-9ba6-9486a04ef80c'
+    }
+  */
+  
+  const sessionId = req.params.sessionId
+  
+  // Validações de segurança mais rigorosas
+  if (!sessionId) {
+    return sendErrorResponse(res, 422, 'Session ID é obrigatório')
+  }
+  
+  if (sessionId.length < 10 || sessionId.length > 100) {
+    return sendErrorResponse(res, 422, 'Session ID deve ter entre 10 e 100 caracteres')
+  }
+  
+  // Permitir apenas caracteres alfanuméricos, hífens e underscores
+  if (!/^[a-zA-Z0-9_-]+$/.test(sessionId)) {
+    return sendErrorResponse(res, 422, 'Session ID deve conter apenas letras, números, hífens e underscores')
+  }
+  
+  // Prevenir ataques de path traversal
+  if (sessionId.includes('..') || sessionId.includes('/') || sessionId.includes('\\')) {
+    return sendErrorResponse(res, 422, 'Session ID inválido')
+  }
+  
+  next()
+}
+
+const sessionValidation = async (req, res, next) => {
+  const validation = await validateSession(req.params.sessionId)
+  if (validation.success !== true) {
+    /* #swagger.responses[404] = {
+        description: "Not Found.",
+        content: {
+          "application/json": {
+            schema: { "$ref": "#/definitions/NotFoundResponse" }
+          }
+        }
+      }
+    */
+    return sendErrorResponse(res, 404, validation.message)
+  }
+  next()
+}
+
+const rateLimiter = rateLimiting({
+  max: rateLimitMax,
+  windowMS: rateLimitWindowMs,
+  message: "You can't make any more requests at the moment. Try again later"
+})
+
+const sessionSwagger = async (req, res, next) => {
+  /*
+    #swagger.tags = ['Session']
+  */
+  next()
+}
+
+const clientSwagger = async (req, res, next) => {
+  /*
+    #swagger.tags = ['Client']
+  */
+  next()
+}
+
+const contactSwagger = async (req, res, next) => {
+  /*
+    #swagger.tags = ['Contact']
+    #swagger.requestBody = {
+      required: true,
+      schema: {
+        type: 'object',
+        properties: {
+          contactId: {
+            type: 'string',
+            description: 'Unique whatsApp identifier for the contact',
+            example: '6281288888888@c.us'
+          }
+        }
+      }
+    }
+  */
+  next()
+}
+
+const messageSwagger = async (req, res, next) => {
+  /*
+    #swagger.tags = ['Message']
+    #swagger.requestBody = {
+      required: true,
+      schema: {
+        type: 'object',
+        properties: {
+          chatId: {
+            type: 'string',
+            description: 'The Chat id which contains the message',
+            example: '6281288888888@c.us'
+          },
+          messageId: {
+            type: 'string',
+            description: 'Unique whatsApp identifier for the message',
+            example: 'ABCDEF999999999'
+          }
+        }
+      }
+    }
+  */
+  next()
+}
+
+const chatSwagger = async (req, res, next) => {
+  /*
+    #swagger.tags = ['Chat']
+    #swagger.requestBody = {
+      required: true,
+      schema: {
+        type: 'object',
+        properties: {
+          chatId: {
+            type: 'string',
+            description: 'Unique whatsApp identifier for the given Chat (either group or personnal)',
+            example: '6281288888888@c.us'
+          }
+        }
+      }
+    }
+  */
+  next()
+}
+
+const groupChatSwagger = async (req, res, next) => {
+  /*
+    #swagger.tags = ['Group Chat']
+    #swagger.requestBody = {
+      required: true,
+      schema: {
+        type: 'object',
+        properties: {
+          chatId: {
+            type: 'string',
+            description: 'Unique whatsApp identifier for the given Chat (either group or personnal)',
+            example: '6281288888888@c.us'
+          }
+        }
+      }
+    }
+  */
+  next()
+}
+
+module.exports = {
+  sessionValidation,
+  apikey,
+  userAuth,
+  sessionNameValidation,
+  sessionSwagger,
+  clientSwagger,
+  contactSwagger,
+  messageSwagger,
+  chatSwagger,
+  groupChatSwagger,
+  rateLimiter,
+  // Middleware de autenticação
+  authenticateToken,
+  requireActiveUser,
+  requireScope,
+  requireAnyScope,
+  requireAllScopes,
+  requireSessionOwnership,
+  requireSessionOwnershipOrCreate,
+  checkAuthEnabled
+}

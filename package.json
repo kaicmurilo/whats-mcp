@@ -1,0 +1,26 @@
+{
+  "name": "whats-mcp",
+  "version": "1.0.0",
+  "description": "Standalone MCP server for WhatsApp Web — use WhatsApp from any AI CLI",
+  "main": "index.mjs",
+  "bin": {
+    "whats-mcp": "./index.mjs"
+  },
+  "scripts": {
+    "start": "node index.mjs",
+    "daemon": "node daemon.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "axios": "^1.5.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.22.2",
+    "ioredis": "^5.3.2",
+    "qr-image": "^3.2.0",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.32.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
