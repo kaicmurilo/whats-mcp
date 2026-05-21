@@ -1,6 +1,6 @@
 {
   "name": "@kaicnunes/whats-mcp",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "WhatsApp Web MCP server — install once, connect any AI CLI",
   "main": "index.mjs",
   "bin": {
