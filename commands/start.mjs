@@ -66,12 +66,12 @@ export default async function start(args) {
     console.log(`Session '${sessionId}' initializing, waiting for QR...`)
   }
 
-  // Poll for QR or connected
-  const deadline = Date.now() + 60000
+  // Poll for QR or connected (Chromium can take 60-120s on first run)
+  const deadline = Date.now() + 120000
   let lastQr = null
   let shown = false
 
-  process.stdout.write('Waiting for QR code')
+  process.stdout.write('Waiting for Chromium + QR code (may take up to 2 min on first run)')
 
   while (Date.now() < deadline) {
     const [qrRes, stRes] = await Promise.all([
@@ -105,6 +105,6 @@ export default async function start(args) {
     await new Promise((r) => setTimeout(r, 2000))
   }
 
-  console.error('\nTimeout: QR not scanned within 60s. Run whats-mcp start again.')
+  console.error('\nTimeout: QR not appeared within 120s. Run: whats-mcp logs to debug, or whats-mcp start to retry.')
   process.exit(1)
 }
