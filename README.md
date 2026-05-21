@@ -68,6 +68,7 @@ O daemon inicia sozinho após reboot. A sessão WhatsApp é restaurada automatic
 | `claude-code` | `~/.claude/settings.json` |
 | `cursor` | `~/.cursor/mcp.json` |
 | `windsurf` | `~/.codeium/windsurf/mcp_config.json` |
+| `gemini-cli` | `~/.gemini/settings.json` |
 
 ---
 
