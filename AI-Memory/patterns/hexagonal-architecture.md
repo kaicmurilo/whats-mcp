@@ -76,3 +76,47 @@ Contém os **Adaptadores**.
 ### Adaptadores (Implementações)
 - **Driving Adapters:** Chamam a porta de entrada (ex: `UserController` do Express).
 - **Driven Adapters:** Implementam a porta de saída (ex: `SqlUserRepository`).
+
+## Guia de Implementação (Checklist)
+
+- [ ] **Regra de Dependência:** O Domínio não importa nada da Aplicação ou Infra.
+- [ ] **Portas primeiro:** Defina as interfaces na camada de Aplicação antes de criar o código de banco de dados.
+- [ ] **Injeção de Dependência:** Use um container ou passe as instâncias dos adaptadores para os casos de uso no momento da inicialização.
+- [ ] **Testabilidade:** Você deve conseguir testar o Caso de Uso mockando as Portas de Saída sem subir um banco de dados real.
+
+## Exemplo de Código (Blueprint Node.js)
+
+### 1. Porta de Saída (Application/Ports)
+```typescript
+// IUserRepository.ts
+export interface IUserRepository {
+    save(user: User): Promise<void>;
+}
+```
+
+### 2. Caso de Uso (Application/UseCases)
+```typescript
+// CreateUser.ts
+import { IUserRepository } from '../ports/IUserRepository';
+
+export class CreateUser {
+    constructor(private userRepository: IUserRepository) {}
+
+    async execute(userData: any) {
+        // ... regras de negócio
+        await this.userRepository.save(userData);
+    }
+}
+```
+
+### 3. Adaptador (Infrastructure/Adapters)
+```typescript
+// PostgresUserRepository.ts
+import { IUserRepository } from '../../application/ports/IUserRepository';
+
+export class PostgresUserRepository implements IUserRepository {
+    async save(user: User) {
+        // Logica SQL usando Prisma/TypeORM/etc
+    }
+}
+```
