@@ -1,5 +1,5 @@
 // commands/install.mjs
-import { mkdirSync, existsSync, writeFileSync, createWriteStream } from 'fs'
+import { mkdirSync, existsSync, writeFileSync, openSync } from 'fs'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
@@ -47,10 +47,10 @@ export default async function install() {
 
   console.log('Starting whats-mcp daemon...')
 
-  const logStream = createWriteStream(LOG_FILE, { flags: 'a' })
+  const logFd = openSync(LOG_FILE, 'a')
   const child = spawn(process.execPath, [join(ROOT, 'daemon.mjs')], {
     detached: true,
-    stdio: ['ignore', logStream, logStream],
+    stdio: ['ignore', logFd, logFd],
     env: { ...process.env, WHATS_MCP_PORT: String(PORT) },
     cwd: ROOT,
   })

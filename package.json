@@ -2,7 +2,6 @@
   "name": "@kaicmurilo/whats-mcp",
   "version": "1.0.0",
   "description": "WhatsApp Web MCP server — install once, connect any AI CLI",
-  "type": "module",
   "main": "index.mjs",
   "bin": {
     "whats-mcp": "./bin/cli.mjs"
