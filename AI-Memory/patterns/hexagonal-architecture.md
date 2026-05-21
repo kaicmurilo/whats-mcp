@@ -120,3 +120,11 @@ export class PostgresUserRepository implements IUserRepository {
     }
 }
 ```
+
+## Aplicação em Projetos
+
+Este padrão é recomendado para projetos complexos onde a lógica de negócio deve ser protegida.
+- [[AI-Memory/projects/whats-mcp.md|whats-mcp]] — Este projeto utiliza uma versão simplificada/MVC, mas poderia ser refatorado para Hexagonal para isolar a dependência do `whatsapp-web.js`.
+
+---
+*Última atualização: 2026-05-21*
