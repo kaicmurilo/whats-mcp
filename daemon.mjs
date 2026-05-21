@@ -7,6 +7,9 @@ import { mkdirSync } from 'fs'
 import 'dotenv/config'
 
 import { createServer, restoreSessions } from './src/mcp-server.mjs'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { setupSession, sessions, validateSession } = require('./src/sessions')
 import { PORT, DATA_DIR, PID_FILE } from './lib/config.mjs'
 import { writePid, removePid } from './lib/pid.mjs'
 
@@ -45,6 +48,38 @@ app.post('/message', async (req, res) => {
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', port: PORT })
+})
+
+// ── Session REST endpoints (used by CLI commands) ─────────────────────────────
+
+app.post('/session/start', (req, res) => {
+  const sessionId = req.body?.sessionId || process.env.WHATS_SESSION_ID || 'default'
+  const result = setupSession(sessionId)
+  if (!result.success && !result.message.includes('already exists')) {
+    return res.status(500).json({ error: result.message })
+  }
+  res.json({ sessionId, started: result.success })
+})
+
+app.get('/session/qr', (req, res) => {
+  const sessionId = req.query.sessionId || process.env.WHATS_SESSION_ID || 'default'
+  const client = sessions.get(sessionId)
+  res.json({ qr: client?.qr ?? null })
+})
+
+app.get('/session/status', async (req, res) => {
+  const sessionId = req.query.sessionId || process.env.WHATS_SESSION_ID || 'default'
+  if (!sessions.has(sessionId)) {
+    return res.json({ connected: false, state: 'NOT_STARTED' })
+  }
+  const v = await validateSession(sessionId)
+  const client = sessions.get(sessionId)
+  res.json({
+    connected: v.success,
+    state: v.state || 'INITIALIZING',
+    name: client?.info?.pushname ?? null,
+    number: client?.info?.wid?.user ?? null,
+  })
 })
 
 const swaggerSpec = swaggerJsdoc({

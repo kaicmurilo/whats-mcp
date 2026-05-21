@@ -6,6 +6,7 @@ const [,, cmd, ...args] = process.argv
 
 const COMMANDS = {
   install: () => import('../commands/install.mjs'),
+  start:   () => import('../commands/start.mjs'),
   connect: () => import('../commands/connect.mjs'),
   stop:    () => import('../commands/stop.mjs'),
   status:  () => import('../commands/status.mjs'),
@@ -19,6 +20,7 @@ whats-mcp — WhatsApp MCP server
 
 Commands:
   install              Start daemon (first-time setup)
+  start [sessionId]    Authenticate WhatsApp — shows QR code in terminal
   connect <cli>        Configure AI CLI (claude-code, cursor, windsurf)
   stop                 Stop daemon
   status               Show daemon status
