@@ -5,8 +5,12 @@ import { fileURLToPath } from 'url'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 import http from 'http'
+import { createRequire } from 'module'
 import { DATA_DIR, PID_FILE, LOG_FILE, ENV_FILE, PORT, BASE_URL } from '../lib/config.mjs'
 import { readPid, pidExists } from '../lib/pid.mjs'
+
+const require = createRequire(import.meta.url)
+const { version: CURRENT_VERSION } = require('../package.json')
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -20,6 +24,32 @@ function ping() {
     req.setTimeout(1000, () => { req.destroy(); resolve(false) })
     req.on('error', () => resolve(false))
   })
+}
+
+function getRunningVersion() {
+  return new Promise((resolve) => {
+    const req = http.get(`${BASE_URL}/version`, (res) => {
+      let buf = ''
+      res.on('data', (c) => { buf += c })
+      res.on('end', () => {
+        try { resolve(JSON.parse(buf).version ?? 'unknown') } catch { resolve('unknown') }
+      })
+    })
+    req.setTimeout(2000, () => { req.destroy(); resolve('unknown') })
+    req.on('error', () => resolve('unknown'))
+  })
+}
+
+async function killDaemon() {
+  const pid = readPid(PID_FILE)
+  if (pid && pidExists(pid)) {
+    process.kill(pid, 'SIGTERM')
+    return
+  }
+  // Fallback: kill by port
+  try {
+    execSync(`lsof -ti :${PORT} | xargs kill -9 2>/dev/null || true`, { stdio: 'ignore' })
+  } catch { /* ignore */ }
 }
 
 async function waitReady(maxMs = 15000) {
@@ -145,13 +175,19 @@ export default async function install() {
     return
   }
 
-  // Port in use but no PID file → foreign process or stale state
+  // Port in use — check if it's our daemon and if version matches
   const portInUse = await ping()
   if (portInUse) {
-    console.log(`✓ Daemon already responding on port ${PORT}`)
-    console.log(`  MCP SSE: ${BASE_URL}/sse`)
-    console.log(`  Swagger: ${BASE_URL}/swagger`)
-    return
+    const runningVersion = await getRunningVersion()
+    if (runningVersion === CURRENT_VERSION) {
+      console.log(`✓ Daemon already running v${CURRENT_VERSION}`)
+      console.log(`  MCP SSE: ${BASE_URL}/sse`)
+      console.log(`  Swagger: ${BASE_URL}/swagger`)
+      return
+    }
+    console.log(`↻ Daemon v${runningVersion} running, updating to v${CURRENT_VERSION}...`)
+    await killDaemon()
+    await new Promise((r) => setTimeout(r, 1000))
   }
 
   console.log('Starting whats-mcp daemon...')

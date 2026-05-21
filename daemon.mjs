@@ -50,6 +50,15 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', port: PORT })
 })
 
+app.get('/version', (_req, res) => {
+  try {
+    const pkg = require('./package.json')
+    res.json({ version: pkg.version })
+  } catch {
+    res.json({ version: 'unknown' })
+  }
+})
+
 // ── Session REST endpoints (used by CLI commands) ─────────────────────────────
 
 app.post('/session/start', (req, res) => {
