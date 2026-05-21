@@ -58,9 +58,13 @@ export default async function start(args) {
     return
   }
 
-  // Start session
-  console.log(`Starting WhatsApp session '${sessionId}'...`)
-  await post('/session/start', { sessionId })
+  // Start session only if not already initializing
+  if (status.state === 'NOT_STARTED') {
+    console.log(`Starting WhatsApp session '${sessionId}'...`)
+    await post('/session/start', { sessionId })
+  } else {
+    console.log(`Session '${sessionId}' initializing, waiting for QR...`)
+  }
 
   // Poll for QR or connected
   const deadline = Date.now() + 60000

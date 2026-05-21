@@ -72,8 +72,14 @@ app.get('/session/status', async (req, res) => {
   if (!sessions.has(sessionId)) {
     return res.json({ connected: false, state: 'NOT_STARTED' })
   }
-  const v = await validateSession(sessionId)
   const client = sessions.get(sessionId)
+  if (client?.qr) {
+    return res.json({ connected: false, state: 'WAITING_QR', qr: true })
+  }
+  const v = await Promise.race([
+    validateSession(sessionId),
+    new Promise((r) => setTimeout(() => r({ success: false, state: 'INITIALIZING' }), 4000)),
+  ])
   res.json({
     connected: v.success,
     state: v.state || 'INITIALIZING',
