@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // bin/cli.mjs
 import 'dotenv/config'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
 
 const [,, cmd, ...args] = process.argv
 
@@ -12,6 +14,12 @@ const COMMANDS = {
   status:  () => import('../commands/status.mjs'),
   logs:    () => import('../commands/logs.mjs'),
   proxy:   () => import('../index.mjs'),
+}
+
+if (cmd === '--version' || cmd === '-v') {
+  const { version } = require('../package.json')
+  console.log(version)
+  process.exit(0)
 }
 
 if (!cmd || cmd === '--help' || cmd === '-h') {
