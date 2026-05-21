@@ -1,5 +1,5 @@
 {
-  "name": "@kaicmurilo/whats-mcp",
+  "name": "@kaicnunes/whats-mcp",
   "version": "1.0.0",
   "description": "WhatsApp Web MCP server — install once, connect any AI CLI",
   "main": "index.mjs",
