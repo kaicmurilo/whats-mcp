@@ -37,23 +37,14 @@
 ## Instalação rápida
 
 ```bash
-# Primeira vez — sobe o daemon e mostra próximos passos
-npx @kaicnunes/whats-mcp install
-
-# Conecta ao Claude Code (edita ~/.claude/settings.json automaticamente)
-npx @kaicnunes/whats-mcp connect claude-code
-
-# Reinicie o Claude Code — WhatsApp já aparece nas tools
-```
-
-Ou instale globalmente para usar sem `npx`:
-
-```bash
 npm install -g @kaicnunes/whats-mcp
 
-whats-mcp install
-whats-mcp connect claude-code
+whats-mcp install          # sobe daemon + registra auto-start no boot
+whats-mcp start            # exibe QR code no terminal → escaneia com celular (uma vez só)
+whats-mcp connect claude-code  # configura Claude Code automaticamente
 ```
+
+O daemon inicia sozinho após reboot. A sessão WhatsApp é restaurada automaticamente — QR só na primeira vez.
 
 ---
 
@@ -61,7 +52,8 @@ whats-mcp connect claude-code
 
 | Comando | Descrição |
 |---|---|
-| `whats-mcp install` | Sobe o daemon (primeira vez / após reinicialização) |
+| `whats-mcp install` | Sobe o daemon e registra auto-start no boot |
+| `whats-mcp start [sessionId]` | Autentica WhatsApp — exibe QR code no terminal |
 | `whats-mcp connect <cli>` | Configura a AI CLI automaticamente |
 | `whats-mcp stop` | Para o daemon |
 | `whats-mcp status` | Status do daemon (PID, HTTP, Swagger) |
@@ -136,12 +128,11 @@ Edite `~/.whats-mcp/.env` para persistir configurações.
 ## Fluxo de autenticação
 
 ```
-1. whats-mcp install
+1. whats-mcp install      → daemon sobe + registrado no boot
        │
        ▼
-2. Chromium sobe headless
-   QR code abre no Preview/visor do sistema (PNG)
-   ASCII art do QR aparece no response da tool
+2. whats-mcp start        → Chromium sobe headless
+                             QR code exibido no terminal (ASCII art)
        │
        ▼
 3. Usuário escaneia o QR com WhatsApp no celular
@@ -151,7 +142,7 @@ Edite `~/.whats-mcp/.env` para persistir configurações.
    Dados salvos em: sessions/session-{id}/
        │
        ▼
-5. Próximas execuções: conecta automático sem QR (LocalAuth)
+5. Próximas execuções: daemon já rodando, sessão restaura sem QR
 ```
 
 > `whatsapp_status` aguarda até **120 segundos** pelo Chromium antes de reportar timeout.
