@@ -109,4 +109,10 @@ app.listen(PORT, () => {
   process.stderr.write(`  SSE:     GET  http://localhost:${PORT}/sse\n`)
   process.stderr.write(`  Health:  GET  http://localhost:${PORT}/health\n`)
   process.stderr.write(`  Swagger: GET  http://localhost:${PORT}/swagger\n`)
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    process.stderr.write(`Port ${PORT} already in use — another daemon is running. Exiting.\n`)
+    process.exit(0)  // exit 0 so launchd/systemd don't restart
+  }
+  throw err
 })

@@ -55,7 +55,10 @@ function registerLaunchd() {
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
-  <true/>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
   <key>StandardOutPath</key>
   <string>${LOG_FILE}</string>
   <key>StandardErrorPath</key>
@@ -133,9 +136,19 @@ export default async function install() {
   // Register auto-start on boot
   registerAutoStart()
 
+  // Check if daemon is already running (by PID file or by port)
   const existingPid = readPid(PID_FILE)
   if (existingPid && pidExists(existingPid)) {
     console.log(`✓ Daemon already running (PID ${existingPid})`)
+    console.log(`  MCP SSE: ${BASE_URL}/sse`)
+    console.log(`  Swagger: ${BASE_URL}/swagger`)
+    return
+  }
+
+  // Port in use but no PID file → foreign process or stale state
+  const portInUse = await ping()
+  if (portInUse) {
+    console.log(`✓ Daemon already responding on port ${PORT}`)
     console.log(`  MCP SSE: ${BASE_URL}/sse`)
     console.log(`  Swagger: ${BASE_URL}/swagger`)
     return
