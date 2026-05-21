@@ -78,7 +78,7 @@ app.get('/session/status', async (req, res) => {
   }
   const v = await Promise.race([
     validateSession(sessionId),
-    new Promise((r) => setTimeout(() => r({ success: false, state: 'INITIALIZING' }), 4000)),
+    new Promise((r) => setTimeout(() => r({ success: false, state: 'INITIALIZING' }), 2000)),
   ])
   res.json({
     connected: v.success,

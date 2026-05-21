@@ -26,7 +26,7 @@ function get(path) {
       res.on('data', (c) => { buf += c })
       res.on('end', () => resolve(JSON.parse(buf)))
     })
-    req.setTimeout(3000, () => { req.destroy(); reject(new Error('timeout')) })
+    req.setTimeout(6000, () => { req.destroy(); reject(new Error('timeout')) })
     req.on('error', reject)
   })
 }
