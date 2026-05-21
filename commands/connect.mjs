@@ -4,7 +4,8 @@ import { dirname } from 'path'
 import { CLI_CONFIGS } from '../lib/config.mjs'
 
 export function buildMcpEntry() {
-  return { command: 'whats-mcp', args: ['proxy'] }
+  const port = parseInt(process.env.WHATS_MCP_PORT || '47891')
+  return { url: `http://localhost:${port}/sse` }
 }
 
 export function patchConfig(filePath) {

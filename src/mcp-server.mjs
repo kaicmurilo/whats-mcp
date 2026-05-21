@@ -7,7 +7,7 @@ import { dirname } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 
-const { setupSession, sessions, validateSession, deleteSession, restoreSessions } = require('./sessions')
+const { setupSession, sessions, sessionLastReady, validateSession, deleteSession, restoreSessions } = require('./sessions')
 const { MessageMedia } = require('whatsapp-web.js')
 const qrcode = require('qrcode-terminal')
 
@@ -20,13 +20,22 @@ function fmtId(id) {
   return `${id}@c.us`
 }
 
+function brAlternate(num) {
+  if (/^55\d{2}9\d{8}$/.test(num)) return `${num.slice(0, 4)}${num.slice(5)}`
+  if (/^55\d{2}\d{8}$/.test(num)) return `${num.slice(0, 4)}9${num.slice(4)}`
+  return null
+}
+
 async function resolveId(client, id) {
   if (!id) return id
   if (id.includes('@g.us')) return id
   if (id.includes('@')) return id
-  const numberId = await client.getNumberId(`${id}@c.us`)
-  if (!numberId) throw new Error(`Number ${id} is not registered on WhatsApp.`)
-  return numberId._serialized
+  const candidates = [id, brAlternate(id)].filter(Boolean)
+  for (const num of candidates) {
+    const numberId = await client.getNumberId(`${num}@c.us`)
+    if (numberId) return numberId._serialized
+  }
+  throw new Error(`Number ${id} is not registered on WhatsApp.`)
 }
 
 function getClient(sessionId) {
@@ -36,6 +45,10 @@ function getClient(sessionId) {
 }
 
 async function assertConnected(sessionId) {
+  // Sticky ready: if 'ready' fired within last 60s, trust it (handles pupPage cycling)
+  const readyAt = sessionLastReady.get(sessionId)
+  if (readyAt && Date.now() - readyAt < 60000) return
+
   const validation = await validateSession(sessionId)
   if (!validation.success) {
     throw new Error(`Session '${sessionId}' not connected (${validation.message}). Start session and scan QR.`)
@@ -263,9 +276,17 @@ export function createServer() {
       const sid = sessionId || SESSION_ID
       await assertConnected(sid)
       const client = getClient(sid)
-      const chatId = await resolveId(client, to)
-      const msg = await client.sendMessage(chatId, message)
-      return { content: [{ type: 'text', text: `Sent. Message ID: ${msg.id._serialized}` }] }
+      const base = to.includes('@') ? to : `${to}@c.us`
+      const alt = !to.includes('@') && brAlternate(to) ? `${brAlternate(to)}@c.us` : null
+      const candidates = [base, alt].filter(Boolean)
+      let lastErr
+      for (const chatId of candidates) {
+        try {
+          const msg = await client.sendMessage(chatId, message)
+          return { content: [{ type: 'text', text: `Sent. Message ID: ${msg.id._serialized}` }] }
+        } catch (err) { lastErr = err }
+      }
+      throw lastErr
     }
   )
 
@@ -282,10 +303,18 @@ export function createServer() {
       const sid = sessionId || SESSION_ID
       await assertConnected(sid)
       const client = getClient(sid)
-      const chatId = await resolveId(client, to)
+      const base = to.includes('@') ? to : `${to}@c.us`
+      const alt = !to.includes('@') && brAlternate(to) ? `${brAlternate(to)}@c.us` : null
+      const candidates = [base, alt].filter(Boolean)
       const media = MessageMedia.fromFilePath(filePath)
-      const msg = await client.sendMessage(chatId, media, { caption })
-      return { content: [{ type: 'text', text: `Sent. Message ID: ${msg.id._serialized}` }] }
+      let lastErr
+      for (const chatId of candidates) {
+        try {
+          const msg = await client.sendMessage(chatId, media, { caption })
+          return { content: [{ type: 'text', text: `Sent. Message ID: ${msg.id._serialized}` }] }
+        } catch (err) { lastErr = err }
+      }
+      throw lastErr
     }
   )
 

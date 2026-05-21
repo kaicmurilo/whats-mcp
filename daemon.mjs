@@ -15,9 +15,18 @@ import { writePid, removePid } from './lib/pid.mjs'
 
 mkdirSync(DATA_DIR, { recursive: true })
 writePid(PID_FILE, process.pid)
+async function shutdown() {
+  removePid(PID_FILE)
+  // Destroy all WhatsApp clients so Chromium exits cleanly
+  for (const [, client] of sessions) {
+    try { await client.destroy() } catch { /* ignore */ }
+  }
+  process.exit(0)
+}
+
 process.on('exit', () => removePid(PID_FILE))
-process.on('SIGINT', () => process.exit(0))
-process.on('SIGTERM', () => process.exit(0))
+process.on('SIGINT', () => shutdown())
+process.on('SIGTERM', () => shutdown())
 
 if ((process.env.RECOVER_SESSIONS || 'true').toLowerCase() === 'true') {
   restoreSessions()
@@ -70,6 +79,17 @@ app.post('/session/start', (req, res) => {
   res.json({ sessionId, started: result.success })
 })
 
+app.post('/session/restart', async (req, res) => {
+  const sessionId = req.body?.sessionId || process.env.WHATS_SESSION_ID || 'default'
+  const client = sessions.get(sessionId)
+  if (client) {
+    sessions.delete(sessionId)
+    await client.destroy().catch(() => {})
+  }
+  const result = setupSession(sessionId)
+  res.json({ sessionId, restarted: true, started: result.success })
+})
+
 app.get('/session/qr', (req, res) => {
   const sessionId = req.query.sessionId || process.env.WHATS_SESSION_ID || 'default'
   const client = sessions.get(sessionId)
@@ -95,6 +115,35 @@ app.get('/session/status', async (req, res) => {
     name: client?.info?.pushname ?? null,
     number: client?.info?.wid?.user ?? null,
   })
+})
+
+function alternateBRNumber(chatId) {
+  const num = chatId.replace('@c.us', '')
+  // 55 + DDD(2) + 9 + 8digits = 13 → try without the 9
+  if (/^55\d{2}9\d{8}$/.test(num)) return `${num.slice(0, 4)}${num.slice(5)}@c.us`
+  // 55 + DDD(2) + 8digits = 12 → try with 9
+  if (/^55\d{2}\d{8}$/.test(num)) return `${num.slice(0, 4)}9${num.slice(4)}@c.us`
+  return null
+}
+
+app.post('/send-message', async (req, res) => {
+  const { chatId, content, sessionId: sid } = req.body
+  const sessionId = sid || process.env.WHATS_SESSION_ID || 'default'
+  if (!chatId || !content) return res.status(400).json({ error: 'chatId and content required' })
+  const client = sessions.get(sessionId)
+  if (!client) return res.status(404).json({ error: `Session '${sessionId}' not found` })
+
+  const candidates = [chatId, alternateBRNumber(chatId)].filter(Boolean)
+  let lastErr
+  for (const cid of candidates) {
+    try {
+      const msg = await client.sendMessage(cid, content)
+      return res.json({ success: true, messageId: msg.id._serialized, chatId: cid })
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  res.status(500).json({ error: lastErr.message })
 })
 
 const swaggerSpec = swaggerJsdoc({

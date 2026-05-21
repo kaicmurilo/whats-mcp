@@ -1,6 +1,9 @@
 const { Client, LocalAuth } = require('whatsapp-web.js')
 const fs = require('fs')
+const { join } = require('path')
+const { execSync } = require('child_process')
 const sessions = new Map()
+const sessionLastReady = new Map() // sessionId → timestamp of last 'ready' event
 const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions } = require('./config')
 const { triggerWebhook, waitForNestedObject, checkIfEventisEnabled } = require('./utils')
 const { cacheHelpers } = require('./utils/cache')
@@ -17,6 +20,7 @@ const validateSession = async (sessionId) => {
     }
 
     const client = sessions.get(sessionId)
+
     // wait until the client is created
     await waitForNestedObject(client, 'pupPage')
       .catch((err) => { return { success: false, state: null, message: err.message } })
@@ -119,6 +123,13 @@ const setupSession = (sessionId) => {
       }
     }
 
+    // Kill orphaned Chromium processes using this profile, then remove lock files
+    const profileDir = join(sessionFolderPath, `session-${sessionId}`)
+    try { execSync(`pkill -f "${profileDir}" 2>/dev/null || true`, { stdio: 'ignore' }) } catch { /* ignore */ }
+    for (const lockFile of ['SingletonLock', 'SingletonCookie', 'SingletonSocket']) {
+      try { fs.unlinkSync(join(profileDir, lockFile)) } catch { /* not present */ }
+    }
+
     const client = new Client(clientOptions)
 
     client.initialize().catch(err => console.log('Initialize error:', err.message))
@@ -185,12 +196,10 @@ const initializeEvents = (client, sessionId) => {
       })
     })
 
-  checkIfEventisEnabled('disconnected')
-    .then(_ => {
-      client.on('disconnected', (reason) => {
-        triggerWebhook(sessionWebhook, sessionId, 'disconnected', { reason })
-      })
-    })
+  client.on('disconnected', (reason) => {
+    client.isReady = false
+    checkIfEventisEnabled('disconnected').then(_ => triggerWebhook(sessionWebhook, sessionId, 'disconnected', { reason }))
+  })
 
   checkIfEventisEnabled('group_join')
     .then(_ => {
@@ -320,15 +329,12 @@ const initializeEvents = (client, sessionId) => {
       })
   })
 
-  checkIfEventisEnabled('ready')
-    .then(_ => {
-      client.on('ready', () => {
-        console.log(`✅ Cliente WhatsApp pronto para sessão: ${sessionId}`)
-        console.log(`📱 QR code escaneado com sucesso para sessão: ${sessionId}`)
-        console.log(`🚀 Sessão ${sessionId} está pronta para uso`)
-        triggerWebhook(sessionWebhook, sessionId, 'ready')
-      })
-    })
+  client.on('ready', () => {
+    client.isReady = true
+    sessionLastReady.set(sessionId, Date.now())
+    console.log(`✅ Cliente WhatsApp pronto para sessão: ${sessionId}`)
+    checkIfEventisEnabled('ready').then(_ => triggerWebhook(sessionWebhook, sessionId, 'ready'))
+  })
 
   checkIfEventisEnabled('contact_changed')
     .then(_ => {
@@ -420,6 +426,7 @@ const flushSessions = async (deleteOnlyInactive) => {
 
 module.exports = {
   sessions,
+  sessionLastReady,
   setupSession,
   restoreSessions,
   validateSession,

@@ -1,6 +1,6 @@
 {
   "name": "@kaicnunes/whats-mcp",
-  "version": "1.0.9",
+  "version": "1.0.20",
   "description": "WhatsApp Web MCP server — install once, connect any AI CLI",
   "main": "index.mjs",
   "bin": {
@@ -21,7 +21,8 @@
   "scripts": {
     "start": "node index.mjs",
     "daemon": "node daemon.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "postinstall": "node bin/cli.mjs install 2>/dev/null || true"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

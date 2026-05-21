@@ -13,6 +13,8 @@ const COMMANDS = {
   stop:    () => import('../commands/stop.mjs'),
   status:  () => import('../commands/status.mjs'),
   logs:    () => import('../commands/logs.mjs'),
+  send:    () => import('../commands/send.mjs'),
+  restart: () => import('../commands/restart.mjs'),
   proxy:   () => import('../index.mjs'),
 }
 
@@ -33,6 +35,8 @@ Commands:
   stop                 Stop daemon
   status               Show daemon status
   logs [-f]            Show daemon logs (use -f to follow)
+  send <number> <msg>  Send a WhatsApp message (test)
+  restart [sessionId]  Restart WhatsApp session (fix detached/stuck state)
   proxy                stdio ↔ SSE proxy (used internally by MCP clients)
   `)
   process.exit(0)

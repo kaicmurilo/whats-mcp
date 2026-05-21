@@ -6,7 +6,7 @@ import { homedir } from 'os'
 import { dirname, join } from 'path'
 import http from 'http'
 import { createRequire } from 'module'
-import { DATA_DIR, PID_FILE, LOG_FILE, ENV_FILE, PORT, BASE_URL } from '../lib/config.mjs'
+import { DATA_DIR, SESSIONS_DIR, PID_FILE, LOG_FILE, ENV_FILE, PORT, BASE_URL } from '../lib/config.mjs'
 import { readPid, pidExists } from '../lib/pid.mjs'
 
 const require = createRequire(import.meta.url)
@@ -81,6 +81,7 @@ function registerLaunchd() {
   <dict>
     <key>WHATS_MCP_PORT</key><string>${PORT}</string>
     <key>RECOVER_SESSIONS</key><string>true</string>
+    <key>SESSIONS_PATH</key><string>${SESSIONS_DIR}</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -122,6 +123,7 @@ Restart=always
 RestartSec=5
 Environment=WHATS_MCP_PORT=${PORT}
 Environment=RECOVER_SESSIONS=true
+Environment=SESSIONS_PATH=${SESSIONS_DIR}
 StandardOutput=append:${LOG_FILE}
 StandardError=append:${LOG_FILE}
 
@@ -147,35 +149,27 @@ function registerAutoStart() {
     const ok = registerLaunchd()
     if (ok) console.log('✓ Auto-start registered via launchd (starts on login)')
     else console.warn('⚠ Could not register launchd — start manually with: whats-mcp install')
+    return ok
   } else if (process.platform === 'linux') {
     const ok = registerSystemd()
     if (ok) console.log('✓ Auto-start registered via systemd user service')
     else console.warn('⚠ Could not register systemd — start manually with: whats-mcp install')
+    return ok
   } else {
     console.log('ℹ Auto-start not supported on this platform. Run whats-mcp install after reboot.')
+    return false
   }
 }
 
 export default async function install() {
   mkdirSync(DATA_DIR, { recursive: true })
+  mkdirSync(SESSIONS_DIR, { recursive: true })
 
   if (!existsSync(ENV_FILE)) {
     writeFileSync(ENV_FILE, `WHATS_MCP_PORT=${PORT}\nRECOVER_SESSIONS=true\n`, 'utf8')
   }
 
-  // Register auto-start on boot
-  registerAutoStart()
-
-  // Check if daemon is already running (by PID file or by port)
-  const existingPid = readPid(PID_FILE)
-  if (existingPid && pidExists(existingPid)) {
-    console.log(`✓ Daemon already running (PID ${existingPid})`)
-    console.log(`  MCP SSE: ${BASE_URL}/sse`)
-    console.log(`  Swagger: ${BASE_URL}/swagger`)
-    return
-  }
-
-  // Port in use — check if it's our daemon and if version matches
+  // Kill outdated daemon before registering new service (avoids port race)
   const portInUse = await ping()
   if (portInUse) {
     const runningVersion = await getRunningVersion()
@@ -190,21 +184,46 @@ export default async function install() {
     await new Promise((r) => setTimeout(r, 1000))
   }
 
-  console.log('Starting whats-mcp daemon...')
+  // Register auto-start — launchd/systemd will start the daemon automatically
+  const managedByService = registerAutoStart()
 
-  const logFd = openSync(LOG_FILE, 'a')
-  const child = spawn(process.execPath, [join(ROOT, 'daemon.mjs')], {
-    detached: true,
-    stdio: ['ignore', logFd, logFd],
-    env: { ...process.env, WHATS_MCP_PORT: String(PORT), RECOVER_SESSIONS: 'true' },
-    cwd: ROOT,
-  })
-  child.unref()
-
-  const ready = await waitReady()
-  if (!ready) {
-    console.error('Daemon did not respond after 15s. Check logs: whats-mcp logs')
-    process.exit(1)
+  // If launchd/systemd started the daemon, wait for it; otherwise spawn manually
+  if (managedByService) {
+    console.log('Starting whats-mcp daemon...')
+    const ready = await waitReady(15000)
+    if (ready) {
+      // service started it fine
+    } else {
+      // service failed — fall back to manual spawn
+      const logFd = openSync(LOG_FILE, 'a')
+      const child = spawn(process.execPath, [join(ROOT, 'daemon.mjs')], {
+        detached: true,
+        stdio: ['ignore', logFd, logFd],
+        env: { ...process.env, WHATS_MCP_PORT: String(PORT), RECOVER_SESSIONS: 'true', SESSIONS_PATH: SESSIONS_DIR },
+        cwd: ROOT,
+      })
+      child.unref()
+      const ready2 = await waitReady(15000)
+      if (!ready2) {
+        console.error('Daemon did not respond after 15s. Check logs: whats-mcp logs')
+        process.exit(1)
+      }
+    }
+  } else {
+    console.log('Starting whats-mcp daemon...')
+    const logFd = openSync(LOG_FILE, 'a')
+    const child = spawn(process.execPath, [join(ROOT, 'daemon.mjs')], {
+      detached: true,
+      stdio: ['ignore', logFd, logFd],
+      env: { ...process.env, WHATS_MCP_PORT: String(PORT), RECOVER_SESSIONS: 'true', SESSIONS_PATH: SESSIONS_DIR },
+      cwd: ROOT,
+    })
+    child.unref()
+    const ready = await waitReady(15000)
+    if (!ready) {
+      console.error('Daemon did not respond after 15s. Check logs: whats-mcp logs')
+      process.exit(1)
+    }
   }
 
   console.log('✓ whats-mcp daemon started\n')

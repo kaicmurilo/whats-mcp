@@ -58,6 +58,8 @@ O daemon inicia sozinho após reboot. A sessão WhatsApp é restaurada automatic
 | `whats-mcp stop` | Para o daemon |
 | `whats-mcp status` | Status do daemon (PID, HTTP, Swagger) |
 | `whats-mcp logs [-f]` | Logs do daemon (`-f` para seguir em tempo real) |
+| `whats-mcp send <número> <msg>` | Envia mensagem de teste (atalho CLI) |
+| `whats-mcp restart [sessionId]` | Reinicia sessão WhatsApp (corrige estado travado/detached) |
 
 **CLIs suportadas pelo `connect`:**
 
@@ -87,6 +89,7 @@ daemon.mjs  (servidor MCP SSE/HTTP, processo independente)
     ├── GET  /sse              ← stream SSE para clientes MCP
     ├── POST /message          ← recebe JSON-RPC dos clientes
     ├── GET  /health           ← health check
+    ├── POST /session/restart      ← reinicia sessão sem apagar autenticação
     └── GET  /swagger          ← Swagger UI
     │
     ▼
