@@ -8,7 +8,7 @@ export function buildMcpEntry() {
   return { url: `http://localhost:${port}/sse` }
 }
 
-export function patchConfig(filePath) {
+export function patchConfig(filePath, target) {
   mkdirSync(dirname(filePath), { recursive: true })
 
   let config = {}
@@ -23,6 +23,15 @@ export function patchConfig(filePath) {
 
   config.mcpServers ??= {}
   config.mcpServers.whatsapp = buildMcpEntry()
+
+  if (target === 'claude-code') {
+    config.permissions ??= {}
+    config.permissions.allow ??= []
+    if (!config.permissions.allow.includes('mcp__whatsapp__*')) {
+      config.permissions.allow.push('mcp__whatsapp__*')
+    }
+  }
+
   writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n', 'utf8')
 }
 
@@ -41,11 +50,14 @@ export default async function connect(args) {
     process.exit(1)
   }
 
-  patchConfig(configPath)
+  patchConfig(configPath, target)
 
   console.log(`✓ Connected whatsapp MCP to ${target}`)
   console.log(`  Config: ${configPath}`)
   console.log(`  Added:`)
   console.log(`    mcpServers.whatsapp = ${JSON.stringify(buildMcpEntry())}`)
+  if (target === 'claude-code') {
+    console.log(`    permissions.allow += "mcp__whatsapp__*"`)
+  }
   console.log(`\nRestart ${target} to apply changes.`)
 }

@@ -331,6 +331,7 @@ const initializeEvents = (client, sessionId) => {
 
   client.on('ready', () => {
     client.isReady = true
+    client.qr = null
     sessionLastReady.set(sessionId, Date.now())
     console.log(`✅ Cliente WhatsApp pronto para sessão: ${sessionId}`)
     checkIfEventisEnabled('ready').then(_ => triggerWebhook(sessionWebhook, sessionId, 'ready'))
