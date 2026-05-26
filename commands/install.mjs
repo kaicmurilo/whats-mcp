@@ -52,6 +52,18 @@ async function killDaemon() {
   } catch { /* ignore */ }
 }
 
+function getSessionStatus() {
+  return new Promise((resolve) => {
+    const req = http.get(`${BASE_URL}/session/status`, (res) => {
+      let buf = ''
+      res.on('data', (c) => { buf += c })
+      res.on('end', () => { try { resolve(JSON.parse(buf)) } catch { resolve(null) } })
+    })
+    req.setTimeout(3000, () => { req.destroy(); resolve(null) })
+    req.on('error', () => resolve(null))
+  })
+}
+
 async function waitReady(maxMs = 15000) {
   const start = Date.now()
   while (Date.now() - start < maxMs) {
@@ -230,10 +242,17 @@ export default async function install() {
   console.log(`  MCP SSE:  ${BASE_URL}/sse`)
   console.log(`  Health:   ${BASE_URL}/health`)
   console.log(`  Swagger:  ${BASE_URL}/swagger`)
-  console.log(`  Logs:     whats-mcp logs -f`)
-  console.log(`\nNext: authenticate WhatsApp (one-time only):`)
-  console.log(`  whats-mcp start`)
-  console.log(`\nThen connect your AI CLI:`)
+  console.log(`  Logs:     whats-mcp logs -f\n`)
+
+  const sessionSt = await getSessionStatus()
+  if (sessionSt?.connected) {
+    console.log(`✓ WhatsApp connected as ${sessionSt.name} (${sessionSt.number})\n`)
+  } else {
+    const startMod = await import('./start.mjs')
+    await startMod.default([])
+  }
+
+  console.log(`\nConnect your AI CLI:`)
   console.log(`  whats-mcp connect claude-code`)
   console.log(`  whats-mcp connect cursor`)
 }
