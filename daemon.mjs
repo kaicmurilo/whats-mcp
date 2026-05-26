@@ -37,6 +37,16 @@ app.use(express.json())
 
 const transports = new Map()
 
+// Singleton server used only for tool introspection
+const _introspectionServer = createServer()
+
+app.get('/tools', (_req, res) => {
+  const tools = Object.entries(_introspectionServer._registeredTools)
+    .filter(([, t]) => t.enabled !== false)
+    .map(([name, t]) => ({ name, description: t.description }))
+  res.json({ tools })
+})
+
 app.get('/sse', async (req, res) => {
   const server = createServer()
   const transport = new SSEServerTransport('/message', res)
@@ -165,6 +175,7 @@ app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 app.listen(PORT, () => {
   process.stderr.write(`whats-mcp daemon running at http://localhost:${PORT}\n`)
   process.stderr.write(`  SSE:     GET  http://localhost:${PORT}/sse\n`)
+  process.stderr.write(`  Tools:   GET  http://localhost:${PORT}/tools\n`)
   process.stderr.write(`  Health:  GET  http://localhost:${PORT}/health\n`)
   process.stderr.write(`  Swagger: GET  http://localhost:${PORT}/swagger\n`)
 }).on('error', (err) => {
