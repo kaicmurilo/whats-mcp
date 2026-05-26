@@ -39,8 +39,7 @@
 ```bash
 npm install -g @kaicnunes/whats-mcp
 
-whats-mcp install          # sobe daemon + registra auto-start no boot
-whats-mcp start            # exibe QR code no terminal → escaneia com celular (uma vez só)
+whats-mcp install          # sobe daemon, registra boot e auto-autentica (exibe QR se necessário)
 whats-mcp connect claude-code  # configura Claude Code automaticamente
 ```
 
@@ -52,7 +51,8 @@ O daemon inicia sozinho após reboot. A sessão WhatsApp é restaurada automatic
 
 | Comando | Descrição |
 |---|---|
-| `whats-mcp install` | Sobe o daemon e registra auto-start no boot |
+| `whats-mcp install` | Sobe o daemon, registra auto-start e auto-autentica (exibe QR) |
+| `whats-mcp update` | Para o daemon, instala a última versão e reinicia (recomendado para atualizar) |
 | `whats-mcp start [sessionId]` | Autentica WhatsApp — exibe QR code no terminal |
 | `whats-mcp connect <cli>` | Configura a AI CLI automaticamente |
 | `whats-mcp stop` | Para o daemon |
@@ -90,11 +90,13 @@ daemon.mjs  (servidor MCP SSE/HTTP, processo independente)
     ├── GET  /sse              ← stream SSE para clientes MCP
     ├── POST /message          ← recebe JSON-RPC dos clientes
     ├── GET  /health           ← health check
+    ├── GET  /tools            ← lista tools MCP (JSON para discovery)
+    │                            Ex: {"tools": [{"name": "whatsapp_send_message", "description": "..."}, ...]}
     ├── POST /session/restart      ← reinicia sessão sem apagar autenticação
     └── GET  /swagger          ← Swagger UI
     │
     ▼
-src/mcp-server.mjs  (factory com as 22 tools MCP)
+src/mcp-server.mjs  (factory com as 27 tools MCP)
     │
     ▼
 src/sessions.js  →  whatsapp-web.js (Puppeteer/Chromium headless)
@@ -132,11 +134,11 @@ Edite `~/.whats-mcp/.env` para persistir configurações.
 ## Fluxo de autenticação
 
 ```
-1. whats-mcp install      → daemon sobe + registrado no boot
+1. whats-mcp install      → daemon sobe + registrado no boot + auto-autentica
+                             (exibe QR code no terminal se necessário)
        │
        ▼
-2. whats-mcp start        → Chromium sobe headless
-                             QR code exibido no terminal (ASCII art)
+2. whats-mcp start        → (Opcional) Exibe QR code manualmente se desejar
        │
        ▼
 3. Usuário escaneia o QR com WhatsApp no celular
@@ -374,7 +376,7 @@ whats-mcp/
 ├── daemon.mjs          ← servidor MCP SSE/HTTP (porta 47891)
 ├── package.json
 └── src/
-    ├── mcp-server.mjs  ← factory McpServer com as 22 tools
+    ├── mcp-server.mjs  ← factory McpServer com as 27 tools
     ├── config.js       ← configurações via env vars
     ├── sessions.js     ← gerenciamento de sessões whatsapp-web.js
     ├── utils.js        ← helpers
